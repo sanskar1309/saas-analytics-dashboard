@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchUsers } from "@/services/api/users";
+import { queryKeys } from "@/lib/queryKeys";
 import type { UsersQueryParams } from "@/types/users";
 
 export function useUsersData(params: UsersQueryParams) {
   return useQuery({
-    queryKey: ["users", params],
+    queryKey: queryKeys.users.list(params),
     queryFn: () => fetchUsers(params),
-    placeholderData: (prev) => prev, // keep previous data while fetching
+    // Keep the previous page visible while the next page loads (no flash)
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 }

@@ -3,12 +3,14 @@
 import { useState } from "react";
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { TableRowSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { UserCard } from "./UserCard";
 import { UserFilters } from "./UserFilters";
 import { useUsersData } from "../hooks/useUsersData";
 import { formatCurrency, formatDate, timeAgo } from "@/lib/utils";
@@ -23,7 +25,6 @@ const PLAN_VARIANT: Record<Plan, "free" | "pro" | "enterprise"> = {
   Enterprise: "enterprise",
 };
 
-/** Deterministic avatar bg from initials */
 const AVATAR_COLORS = [
   "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
   "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
@@ -38,26 +39,38 @@ function avatarColor(initials: string) {
   return AVATAR_COLORS[code % AVATAR_COLORS.length];
 }
 
-export function UsersTable() {
-  const [page, setPage]           = useState(1);
-  const [search, setSearch]       = useState("");
-  const [plan, setPlan]           = useState<Plan | "All">("All");
-  const [sortBy, setSortBy]       = useState<SortKey>("joinedAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+const PAGE_SIZE = 10;
 
-  const PAGE_SIZE = 10;
+const COLUMNS: Array<{ key: SortKey; label: string }> = [
+  { key: "name",       label: "User"        },
+  { key: "plan",       label: "Plan"        },
+  { key: "status",     label: "Status"      },
+  { key: "mrr",        label: "MRR"         },
+  { key: "country",    label: "Country"     },
+  { key: "joinedAt",   label: "Joined"      },
+  { key: "lastActive", label: "Last Active" },
+];
+
+export function UsersTable() {
+  const [page,      setPage]      = useState(1);
+  const [search,    setSearch]    = useState("");
+  const [plan,      setPlan]      = useState<Plan | "All">("All");
+  const [sortBy,    setSortBy]    = useState<SortKey>("joinedAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const { data, isLoading, isError, refetch, isFetching } = useUsersData({
     page, pageSize: PAGE_SIZE, search, plan, sortBy, sortOrder,
   });
 
   function handleSort(key: SortKey) {
-    if (sortBy === key) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(key);
-      setSortOrder("asc");
-    }
+    if (sortBy === key) setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortOrder("asc"); }
+    setPage(1);
+  }
+
+  function resetFilters() {
+    setSearch("");
+    setPlan("All");
     setPage(1);
   }
 
@@ -69,22 +82,16 @@ export function UsersTable() {
       : <ChevronDown size={12} className="text-indigo-500" />;
   };
 
-  const columns: Array<{ key: SortKey; label: string }> = [
-    { key: "name",       label: "User"        },
-    { key: "plan",       label: "Plan"        },
-    { key: "status",     label: "Status"      },
-    { key: "mrr",        label: "MRR"         },
-    { key: "country",    label: "Country"     },
-    { key: "joinedAt",   label: "Joined"      },
-    { key: "lastActive", label: "Last Active" },
-  ];
-
   if (isError) {
     return <ErrorState message="Failed to load users." onRetry={refetch} />;
   }
 
+  const isEmpty = !isLoading && (data?.data.length ?? 0) === 0;
+  const hasFilters = search !== "" || plan !== "All";
+
   return (
     <div className="space-y-3 animate-fade-in">
+      {/* Filters row */}
       <UserFilters
         search={search}
         plan={plan}
@@ -92,19 +99,41 @@ export function UsersTable() {
         onPlanChange={(p)   => { setPlan(p);   setPage(1); }}
       />
 
+      {/* ── Mobile card list (< md) ─────────────────────────────────────────── */}
+      <div className="md:hidden">
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-32 animate-shimmer rounded-xl" />
+            ))}
+          </div>
+        ) : isEmpty ? (
+          <EmptyState
+            icon={Users}
+            title={hasFilters ? "No users match your filters" : "No users yet"}
+            description={hasFilters ? "Try adjusting your search or plan filter." : undefined}
+            action={hasFilters ? { label: "Clear filters", onClick: resetFilters } : undefined}
+          />
+        ) : (
+          <div className="space-y-3">
+            {data?.data.map((user) => <UserCard key={user.id} user={user} />)}
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table (≥ md) ────────────────────────────────────────────── */}
       <div
         className={cn(
-          "overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900",
+          "hidden md:block overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900",
           "transition-opacity duration-200",
           isFetching && "opacity-60"
         )}
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            {/* Head */}
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800">
-                {columns.map(({ key, label }) => (
+                {COLUMNS.map(({ key, label }) => (
                   <th
                     key={key}
                     onClick={() => handleSort(key)}
@@ -119,19 +148,29 @@ export function UsersTable() {
               </tr>
             </thead>
 
-            {/* Body */}
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60">
               {isLoading ? (
                 Array.from({ length: PAGE_SIZE }).map((_, i) => (
                   <TableRowSkeleton key={i} cols={7} />
                 ))
-              ) : data?.data.length === 0 ? (
+              ) : isEmpty ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="py-16 text-center text-sm text-gray-400 dark:text-gray-600"
-                  >
-                    No users match your filters.
+                  <td colSpan={7} className="py-0">
+                    <EmptyState
+                      icon={Users}
+                      title={hasFilters ? "No users match your filters" : "No users yet"}
+                      description={
+                        hasFilters
+                          ? "Try adjusting your search or plan filter."
+                          : "Users will appear here once they sign up."
+                      }
+                      action={
+                        hasFilters
+                          ? { label: "Clear filters", onClick: resetFilters }
+                          : undefined
+                      }
+                      compact
+                    />
                   </td>
                 </tr>
               ) : (
@@ -143,12 +182,7 @@ export function UsersTable() {
                     {/* User */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                            avatarColor(user.avatarInitials)
-                          )}
-                        >
+                        <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", avatarColor(user.avatarInitials))}>
                           {user.avatarInitials}
                         </div>
                         <div className="min-w-0">
@@ -161,18 +195,12 @@ export function UsersTable() {
                         </div>
                       </div>
                     </td>
-
-                    {/* Plan */}
                     <td className="px-4 py-3">
                       <Badge variant={PLAN_VARIANT[user.plan]}>{user.plan}</Badge>
                     </td>
-
-                    {/* Status */}
                     <td className="px-4 py-3">
                       <Badge variant={user.status}>{user.status}</Badge>
                     </td>
-
-                    {/* MRR */}
                     <td className="px-4 py-3">
                       {user.mrr > 0 ? (
                         <span className="text-xs font-semibold tabular-nums text-gray-900 dark:text-white">
@@ -182,18 +210,12 @@ export function UsersTable() {
                         <span className="text-xs text-gray-300 dark:text-gray-700">—</span>
                       )}
                     </td>
-
-                    {/* Country */}
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                       {user.country}
                     </td>
-
-                    {/* Joined */}
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                       {formatDate(user.joinedAt)}
                     </td>
-
-                    {/* Last active */}
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                       {timeAgo(user.lastActive)}
                     </td>
@@ -215,50 +237,36 @@ export function UsersTable() {
               <span className="font-medium text-gray-700 dark:text-gray-300">{data.total}</span>
               {" "}users
             </p>
-
             <div className="flex items-center gap-1">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft size={13} strokeWidth={2} />
-                Prev
+              <Button variant="secondary" size="sm" disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                <ChevronLeft size={13} strokeWidth={2} /> Prev
               </Button>
 
               <div className="flex items-center gap-0.5 px-1">
                 {Array.from({ length: Math.min(5, data.totalPages) }, (_, i) => {
                   let n: number;
-                  if (data.totalPages <= 5)       n = i + 1;
-                  else if (page <= 3)             n = i + 1;
+                  if (data.totalPages <= 5)            n = i + 1;
+                  else if (page <= 3)                  n = i + 1;
                   else if (page >= data.totalPages - 2) n = data.totalPages - 4 + i;
-                  else                            n = page - 2 + i;
+                  else                                 n = page - 2 + i;
                   return (
-                    <button
-                      key={n}
-                      onClick={() => setPage(n)}
+                    <button key={n} onClick={() => setPage(n)}
                       className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-colors duration-100",
+                        "flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-colors",
                         n === page
                           ? "bg-indigo-600 text-white dark:bg-indigo-500"
                           : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                      )}
-                    >
+                      )}>
                       {n}
                     </button>
                   );
                 })}
               </div>
 
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page === data.totalPages}
-                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-              >
-                Next
-                <ChevronRight size={13} strokeWidth={2} />
+              <Button variant="secondary" size="sm" disabled={page === data.totalPages}
+                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}>
+                Next <ChevronRight size={13} strokeWidth={2} />
               </Button>
             </div>
           </div>

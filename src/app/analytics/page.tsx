@@ -1,13 +1,16 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnalyticsCharts } from "@/features/analytics/components/AnalyticsCharts";
 
 export default function AnalyticsPage() {
   return (
     <DashboardLayout
       title="Analytics"
-      subtitle="Revenue, user growth, and traffic breakdown."
+      subtitle="Revenue, growth, and acquisition breakdown."
     >
-      <AnalyticsCharts />
+      <ErrorBoundary>
+        <AnalyticsCharts />
+      </ErrorBoundary>
     </DashboardLayout>
   );
 }
