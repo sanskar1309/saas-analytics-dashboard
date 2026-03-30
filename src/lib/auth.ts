@@ -34,9 +34,10 @@ function toBase64url(buf: ArrayBuffer | Uint8Array): string {
     .replace(/=/g, "");
 }
 
-function fromBase64url(str: string): Uint8Array {
+function fromBase64url(str: string): ArrayBuffer {
   const padded = str.replace(/-/g, "+").replace(/_/g, "/");
-  return Uint8Array.from(Buffer.from(padded, "base64"));
+  const buf = Buffer.from(padded, "base64");
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
 // ─── Token creation / verification ───────────────────────────────────────────
