@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronLeft, ChevronRight, Users,
@@ -52,26 +53,48 @@ const COLUMNS: Array<{ key: SortKey; label: string }> = [
 ];
 
 export function UsersTable() {
-  const [page,      setPage]      = useState(1);
-  const [search,    setSearch]    = useState("");
-  const [plan,      setPlan]      = useState<Plan | "All">("All");
-  const [sortBy,    setSortBy]    = useState<SortKey>("joinedAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const router     = useRouter();
+  const pathname   = usePathname();
+  const searchParams = useSearchParams();
+
+  // ── Read filter state from URL ──────────────────────────────────────────────
+  const page      = Number(searchParams.get("page")      ?? 1);
+  const search    = searchParams.get("search")            ?? "";
+  const plan      = (searchParams.get("plan")             ?? "All") as Plan | "All";
+  const sortBy    = (searchParams.get("sortBy")           ?? "joinedAt") as SortKey;
+  const sortOrder = (searchParams.get("sortOrder")        ?? "desc") as "asc" | "desc";
+
+  // ── URL update helper ────────────────────────────────────────────────────────
+  const pushParams = useCallback(
+    (updates: Record<string, string | number | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === "" || value === "All") {
+          params.delete(key);
+        } else {
+          params.set(key, String(value));
+        }
+      }
+      // Always reset to page 1 for filter/sort changes unless page is explicitly set
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
 
   const { data, isLoading, isError, refetch, isFetching } = useUsersData({
     page, pageSize: PAGE_SIZE, search, plan, sortBy, sortOrder,
   });
 
   function handleSort(key: SortKey) {
-    if (sortBy === key) setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
-    else { setSortBy(key); setSortOrder("asc"); }
-    setPage(1);
+    if (sortBy === key) {
+      pushParams({ sortOrder: sortOrder === "asc" ? "desc" : "asc", page: 1 });
+    } else {
+      pushParams({ sortBy: key, sortOrder: "asc", page: 1 });
+    }
   }
 
   function resetFilters() {
-    setSearch("");
-    setPlan("All");
-    setPage(1);
+    router.push(pathname, { scroll: false });
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -86,7 +109,7 @@ export function UsersTable() {
     return <ErrorState message="Failed to load users." onRetry={refetch} />;
   }
 
-  const isEmpty = !isLoading && (data?.data.length ?? 0) === 0;
+  const isEmpty    = !isLoading && (data?.data.length ?? 0) === 0;
   const hasFilters = search !== "" || plan !== "All";
 
   return (
@@ -95,8 +118,8 @@ export function UsersTable() {
       <UserFilters
         search={search}
         plan={plan}
-        onSearchChange={(v) => { setSearch(v); setPage(1); }}
-        onPlanChange={(p)   => { setPlan(p);   setPage(1); }}
+        onSearchChange={(v) => pushParams({ search: v, page: 1 })}
+        onPlanChange={(p)   => pushParams({ plan: p,   page: 1 })}
       />
 
       {/* ── Mobile card list (< md) ─────────────────────────────────────────── */}
@@ -137,6 +160,7 @@ export function UsersTable() {
                   <th
                     key={key}
                     onClick={() => handleSort(key)}
+                    aria-sort={sortBy === key ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
                     className="cursor-pointer select-none px-4 py-3 text-left"
                   >
                     <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 transition-colors hover:text-gray-700 dark:text-gray-600 dark:hover:text-gray-300">
@@ -239,19 +263,19 @@ export function UsersTable() {
             </p>
             <div className="flex items-center gap-1">
               <Button variant="secondary" size="sm" disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                onClick={() => pushParams({ page: page - 1 })}>
                 <ChevronLeft size={13} strokeWidth={2} /> Prev
               </Button>
 
               <div className="flex items-center gap-0.5 px-1">
                 {Array.from({ length: Math.min(5, data.totalPages) }, (_, i) => {
                   let n: number;
-                  if (data.totalPages <= 5)            n = i + 1;
-                  else if (page <= 3)                  n = i + 1;
+                  if (data.totalPages <= 5)             n = i + 1;
+                  else if (page <= 3)                   n = i + 1;
                   else if (page >= data.totalPages - 2) n = data.totalPages - 4 + i;
-                  else                                 n = page - 2 + i;
+                  else                                  n = page - 2 + i;
                   return (
-                    <button key={n} onClick={() => setPage(n)}
+                    <button key={n} onClick={() => pushParams({ page: n })}
                       className={cn(
                         "flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-colors",
                         n === page
@@ -265,7 +289,7 @@ export function UsersTable() {
               </div>
 
               <Button variant="secondary" size="sm" disabled={page === data.totalPages}
-                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}>
+                onClick={() => pushParams({ page: page + 1 })}>
                 Next <ChevronRight size={13} strokeWidth={2} />
               </Button>
             </div>

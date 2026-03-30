@@ -1,15 +1,37 @@
-import { MOCK_REVENUE_DATA, MOCK_USER_GROWTH, MOCK_TRAFFIC_SOURCES } from "./mockData";
+import { getDb } from "@/lib/db";
+import { revenue, userGrowth, trafficSources } from "@/db/schema";
+import { asc } from "drizzle-orm";
 import type { AnalyticsData } from "@/types/analytics";
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export async function fetchAnalyticsData(): Promise<AnalyticsData> {
-  await delay(800);
+  const db = getDb();
+
+  const [revenueRows, growthRows, trafficRows] = await Promise.all([
+    db.select().from(revenue).orderBy(asc(revenue.id)),
+    db.select().from(userGrowth).orderBy(asc(userGrowth.id)),
+    db.select().from(trafficSources).orderBy(asc(trafficSources.id)),
+  ]);
+
   return {
-    revenue: [...MOCK_REVENUE_DATA],
-    userGrowth: [...MOCK_USER_GROWTH],
-    trafficSources: [...MOCK_TRAFFIC_SOURCES],
+    revenue: revenueRows.map((r) => ({
+      month:        r.month,
+      mrr:          r.mrr,
+      arr:          r.arr,
+      newMrr:       r.newMrr,
+      expansionMrr: r.expansionMrr,
+      churnedMrr:   r.churnedMrr,
+    })),
+    userGrowth: growthRows.map((r) => ({
+      date:         r.date,
+      totalUsers:   r.totalUsers,
+      activeUsers:  r.activeUsers,
+      newUsers:     r.newUsers,
+      churnedUsers: r.churnedUsers,
+    })),
+    trafficSources: trafficRows.map((r) => ({
+      name:  r.name,
+      value: r.value,
+      color: r.color,
+    })),
   };
 }

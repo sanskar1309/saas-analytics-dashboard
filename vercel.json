@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "SESSION_SECRET": "@session_secret",
+    "DEMO_EMAIL": "@demo_email",
+    "DEMO_PASSWORD": "@demo_password"
+  }
+}

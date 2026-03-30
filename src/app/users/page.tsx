@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UsersTable } from "@/features/users/components/UsersTable";
@@ -9,7 +10,9 @@ export default function UsersPage() {
       subtitle="Manage and analyse your customer base."
     >
       <ErrorBoundary>
-        <UsersTable />
+        <Suspense>
+          <UsersTable />
+        </Suspense>
       </ErrorBoundary>
     </DashboardLayout>
   );

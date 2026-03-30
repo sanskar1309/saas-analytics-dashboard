@@ -4,6 +4,13 @@
 
 PulseBoard is a production-grade SaaS analytics dashboard that gives product teams instant insight into revenue, user growth, and acquisition — all in one place. Built for speed, designed for clarity.
 
+**[Live demo →](https://your-app.vercel.app)**
+
+| Demo credential | Value |
+|---|---|
+| Email | `demo@pulseboard.io` |
+| Password | `demo` |
+
 ---
 
 ## Features

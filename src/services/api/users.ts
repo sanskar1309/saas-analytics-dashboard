@@ -1,50 +1,75 @@
-import { MOCK_USERS } from "./mockData";
+import { getDb } from "@/lib/db";
+import { users } from "@/db/schema";
+import { asc, desc, ilike, eq, or, and, SQL } from "drizzle-orm";
 import type { UsersQueryParams, UsersResponse } from "@/types/users";
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export async function fetchUsers(params: UsersQueryParams): Promise<UsersResponse> {
-  await delay(500);
+  const db = getDb();
+  const { page, pageSize, search, plan, sortBy, sortOrder } = params;
 
-  let filtered = [...MOCK_USERS];
+  // ── WHERE conditions ──────────────────────────────────────────────────────
+  const conditions: SQL[] = [];
 
-  // Filter by plan
-  if (params.plan !== "All") {
-    filtered = filtered.filter((u) => u.plan === params.plan);
+  if (plan !== "All") {
+    conditions.push(eq(users.plan, plan));
   }
 
-  // Search
-  if (params.search.trim()) {
-    const q = params.search.toLowerCase();
-    filtered = filtered.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.country.toLowerCase().includes(q)
+  if (search.trim()) {
+    const q = `%${search.trim()}%`;
+    conditions.push(
+      or(
+        ilike(users.name,    q),
+        ilike(users.email,   q),
+        ilike(users.country, q),
+      )!
     );
   }
 
-  // Sort
-  filtered.sort((a, b) => {
-    const aVal = a[params.sortBy];
-    const bVal = b[params.sortBy];
-    if (aVal < bVal) return params.sortOrder === "asc" ? -1 : 1;
-    if (aVal > bVal) return params.sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / params.pageSize);
-  const start = (params.page - 1) * params.pageSize;
-  const data = filtered.slice(start, start + params.pageSize);
+  // ── Column map ────────────────────────────────────────────────────────────
+  const colMap = {
+    id:             users.id,
+    name:           users.name,
+    email:          users.email,
+    plan:           users.plan,
+    status:         users.status,
+    mrr:            users.mrr,
+    country:        users.country,
+    avatarInitials: users.avatarInitials,
+    joinedAt:       users.joinedAt,
+    lastActive:     users.lastActive,
+  } as const;
+
+  const col       = colMap[sortBy as keyof typeof colMap] ?? users.joinedAt;
+  const orderExpr = sortOrder === "asc" ? asc(col) : desc(col);
+
+  // ── Query ─────────────────────────────────────────────────────────────────
+  const [rows, countRows] = await Promise.all([
+    db.select().from(users).where(where).orderBy(orderExpr)
+      .limit(pageSize).offset((page - 1) * pageSize),
+    db.$count(users, where),
+  ]);
+
+  const total      = Number(countRows);
+  const totalPages = Math.ceil(total / pageSize);
 
   return {
-    data,
+    data: rows.map((u) => ({
+      id:             u.id,
+      name:           u.name,
+      email:          u.email,
+      plan:           u.plan,
+      status:         u.status,
+      mrr:            u.mrr,
+      country:        u.country,
+      avatarInitials: u.avatarInitials,
+      joinedAt:       u.joinedAt.toISOString(),
+      lastActive:     u.lastActive.toISOString(),
+    })),
     total,
-    page: params.page,
-    pageSize: params.pageSize,
+    page,
+    pageSize,
     totalPages,
   };
 }

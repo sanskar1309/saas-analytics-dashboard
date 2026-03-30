@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart3, Users, Zap, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, BarChart3, Users, Zap, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -13,6 +13,13 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router   = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800">
@@ -78,6 +85,15 @@ export function Sidebar() {
         <button className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-gray-500 transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/60 dark:hover:text-gray-100">
           <Settings size={16} strokeWidth={2} className="shrink-0 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300" />
           Settings
+        </button>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-gray-500 transition-all duration-150 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+        >
+          <LogOut size={16} strokeWidth={2} className="shrink-0 text-gray-400 group-hover:text-red-500 dark:text-gray-500 dark:group-hover:text-red-400" />
+          Sign out
         </button>
 
         {/* User row */}
