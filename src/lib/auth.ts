@@ -26,8 +26,8 @@ async function getKey(): Promise<CryptoKey> {
 
 // ─── Base64url helpers ────────────────────────────────────────────────────────
 
-function toBase64url(buf: ArrayBuffer): string {
-  return Buffer.from(buf)
+function toBase64url(buf: ArrayBuffer | Uint8Array): string {
+  return Buffer.from(buf instanceof Uint8Array ? buf : new Uint8Array(buf))
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
