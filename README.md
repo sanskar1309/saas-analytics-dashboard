@@ -4,7 +4,7 @@
 
 PulseBoard is a production-grade SaaS analytics dashboard that gives product teams instant insight into revenue, user growth, and acquisition — all in one place. Built for speed, designed for clarity.
 
-**[Live demo →](https://pulseboard-theta.vercel.app)**
+**[Live demo →](https://pulseboard-theta.vercel.app)** &nbsp;![CI](https://github.com/sanskar1309/saas-analytics-dashboard/actions/workflows/ci.yml/badge.svg)
 
 | Demo credential | Value |
 |---|---|
